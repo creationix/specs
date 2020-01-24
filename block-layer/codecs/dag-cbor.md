@@ -31,8 +31,9 @@ Therefore the DagCBOR codec must:
 
 1. Use no tags other than the CID tag (`42`). A valid DagCBOR encoder must not encode using any additional tags and a valid DagCBOR decoder must reject objects containing additional tags as invalid.
 2. Use the canonical CBOR encoding defined by the the suggestions in [section 3.9 of the CBOR specification]. A valid DagCBOR decoder should reject objects not following these restrictions as invalid. Specifically:
-   * Integers must be as small as possible.
+   * Integer encoding must be as short as possible.
    * The expression of lengths in major types 2 through 5 must be as short as possible.
+   * Floating point values must be encoded as the smallest of 16-, 32-, or 64-bit floating point that accurately represents the value, even for integral values.
    * The keys in every map must be sorted lowest value to highest. Sorting is performed on the bytes of the representation of the keys.
      - If two keys have different lengths, the shorter one sorts earlier;
      - If two keys have the same length, the one with the lower value in (byte-wise) lexical order sorts earlier.
