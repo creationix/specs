@@ -297,28 +297,167 @@ Selector:
 ```
 
 How does this syntax look:
-```java
-Commit( // COMMIT1
-  message:"Test Commit"
-  tree:Tree( // TREE1
-    Entry(name:"README.md" mode:File link:Blob(...)) // BLOB1_2
-    Entry(name:"src" mode:Tree link:Tree( // TREE10
-      Entry(name:"main.zig" mode:File link:Blob(...)))) // BLOB2
-    Entry(name:".gitmodules" mode:File link:Blob(...)) // BLOB10
-    Entry(name:".libhydrogen" mode:Commit link:Commit(...))) // COMMIT10
+```closurescript
+(Commit
+  message="Test Commit"
+  tree=<Tree: # TREE1
+    Entry: name="README.md" mode=File link=Blob:
+      ... # BLOB1_2
+    Entry: name="src" mode=Tree link=Tree( # TREE10
+      Entry(name="main.zig" mode=File link=Blob(...)))) # BLOB2
+    Entry(name=".gitmodules" mode=File link=Blob(...)) # BLOB10
+    Entry(name=".libhydrogen" mode=Commit link=Commit(...))) # COMMIT10
   parents:[
-    Commit( // COMMIT2
+    Commit( # COMMIT2
       message:"Merge Commit"
-      tree:Tree( // TREE2
-        Entry(name:"README.md" mode:File link:Blob(...)) // BLOB1
-        Entry(name:"src" mode:Tree link:Tree( // TREE10
-          Entry(name:"main.zig" mode:File link:Blob(...))))) // BLOB2
+      tree:Tree( # TREE2
+        Entry(name="README.md" mode=File link=Blob(...)) # BLOB1
+        Entry(name="src" mode=Tree link=Tree( # TREE10
+          Entry(name="main.zig" mode=File link=Blob(...))))) # BLOB2
       parents:[
-        Commit( // COMMIT 3
+        Commit( # COMMIT 3
           message:"Feature Branch"
-          tree:Tree( // TREE3
-            Entry(name:"README.md" mode:File link:Blob(...))) // BLOB1
+          tree:Tree( # TREE3
+            Entry(name="README.md" mode=File link=Blob(...))) # BLOB1
           parents:[
-            Commit(...)]) // COMMIT5
-        Commit( // COMMIT 4
+            Commit(...)]) # COMMIT5
+        Commit( # COMMIT 4
+```
+
+## Url Friendly Generalized Syntax
+
+```js
+// Finding out what characters are URL friendly so we know what to work with.
+> new Array(256).join('.').split('.').map((_,i)=>String.fromCharCode(i)).filter(i=>encodeURIComponent(i)===i&&encodeURI(i)===i)
+[
+  '!', "'", '(', ')', '*', '-', '.', '0', '1',
+  '2', '3', '4', '5', '6', '7', '8', '9', 'A',
+  'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
+  'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
+  'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a',
+  'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+  'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+  't', 'u', 'v', 'w', 'x', 'y', 'z', '~'
+]
+```
+
+This is a sample selector as it would appear embedded in a URL as a long line:
+
+```java
+Selector(ExploreRecursive(maxDepth(5)sequence(ExploreFields(fields(tree(ExploreRecursive(maxDepth(9999)sequence(ExploreAll(next(ExploreRecursiveEdge())))))parents(ExploreAll(next(ExploreRecursiveEdge()))))))))
+```
+
+Here, it's shown with whitespace added.  Notice that every line ends in punctuation so whitespace is never needed.
+
+```java
+// starting from a commit
+Selector(
+  ExploreRecursive(
+    maxDepth(5) // this is the shallow clone depth
+    sequence(
+      ExploreFields(
+        fields(
+          tree(
+            ExploreRecursive(
+              maxDepth(9999) // we don't actually allow this field to be absent (reasons similar to graphql's refusal of recursion)
+              sequence(
+                ExploreAll(
+                  next(
+                    ExploreRecursiveEdge())))))
+          parents(
+            ExploreAll(
+              next(
+                ExploreRecursiveEdge()))))))))
+```
+
+For comparison, here is the YAML version.
+
+```yaml
+# starting from a commit
+Selector:
+  ExploreRecursive:
+    maxDepth: 5 ## this is the shallow clone depth
+    sequence:
+      ExploreFields:
+        fields:
+          "tree":
+            ExploreRecursive:
+              maxDepth: 9999 ## we don't actually allow this field to be absent (reasons similar to graphql's refusal of recursion)
+              sequence:
+                ExploreAll:
+                  next:
+                    ExploreRecursiveEdge
+          "parents":
+              ExploreAll:
+                next:
+                  ExploreRecursiveEdge ## jumps us back up to the top
+```
+
+Let's try to make it more terse and readable.  All schema types have fixed arity in selectors, so we can omit property names.
+This also reduces the amount of parentheses considerably.  We add `.` as a separater between arguments that don't end in symbols already.
+Also don't require symbols for leaves like `ExploreRecursiveEdge`.
+
+One liner in more terse version.
+```java
+Selector(ExploreRecursive(5.ExploreFields(tree(ExploreRecursive(9999.ExploreAll(ExploreRecursiveEdge)))parents(ExploreAll(ExploreRecursiveEdge)))))
+```
+
+
+Same thing pretty-printed.
+```
+Selector(
+  ExploreRecursive(
+    5.
+    ExploreFields(
+      tree(
+        ExploreRecursive(
+          9999.
+          ExploreAll(
+            ExploreRecursiveEdge
+          )
+        )
+      )
+      parents(
+        ExploreAll(
+          ExploreRecursiveEdge
+        )
+      )
+    )
+  )
+)
+```
+
+Now let's shorten the struct and enum names to make the syntax selector specific.
+
+```
+Selector -> (none, it's implied)
+ExploreRecursive -> R
+ExploreFields -> f
+ExploreAll -> a
+ExploreRecursiveEdge -> ~
+```
+
+```java
+R(
+  5.
+  f(
+    tree(
+      R(
+        9999.
+        a(
+          ~
+        )
+      )
+    )
+    parents(
+      a(
+        ~
+      )
+    )
+  )
+)
+```
+
+```java
+R(5.f(tree(R(9999.a(~)))parents(a(~))))
 ```
