@@ -112,6 +112,7 @@ Now for some trees:
 
 The graph looks something like this when presented with links inline:
 
+## data as raw JSON
 ```js
 // CID: COMMIT1
 { commit: { 
@@ -184,6 +185,85 @@ The graph looks something like this when presented with links inline:
 }}
 ```
 
+## data as schema typed yaml
+```yaml
+Object: # COMMIT1
+  Commit:
+    message: Test Commit
+    tree: 
+      Object: # TREE1
+        Tree:
+          - Entry:
+            name: README.md
+            mode: Mode.File
+            link: 
+              Object: # BLOB1_2 ...
+          - Entry:
+            name: src
+            mode: Mode.Tree
+            link:
+              Object: # TREE10
+                Tree:
+                  - Entry:
+                    name: main.zig
+                    mode: Mode.File
+                    link: 
+                      Object: # BLOB2 ...
+          - Entry:
+            name: .gitmodules
+            mode: Mode.File
+            link: 
+              Object: # BLOB10 ...
+          - Entry:
+            name: libhydrogen
+            mode: Mode.Commit
+            link: 
+              Object: # COMMIT10 ...
+    parents:
+      - Object: # COMMIT2
+        Commit:
+          message: Merge Commit
+          tree: 
+            Object: # TREE2
+              Tree:
+                - Entry:
+                  name: README.md
+                  mode: Mode.File
+                  link:
+                    Object: # BLOB1 ...
+                - Entry:
+                  name: src
+                  mode: Mode.Tree
+                  link:
+                    Object: # TREE10
+                      Tree:
+                        - Entry:
+                          name: main.zig
+                          mode: Mode.File
+                          link:
+                            Object: # BLOB2
+      parents:
+        - Object: # COMMIT3
+          Commit:
+            message: Feature Branch
+            tree: 
+              - Object: # TREE3
+                Tree:
+                  name: README.md
+                  mode: Mode.File
+                  link: 
+                    Object: # BLOB1 ...
+            parents:
+              - Object: # COMMIT5 ...
+        - Object: # COMMIT4
+          Commit:
+            message: Master Branch
+            tree: 
+              Object: # TREE4 ...
+            parents:
+              Object: # COMMIT6
+```
+
 ## Selector for Shallow Clone
 
 So now for the tricky part.  I want a selector that simulates a shallow git clone.  This means:
@@ -193,3 +273,25 @@ So now for the tricky part.  I want a selector that simulates a shallow git clon
 - I don't want multiple copies of `BLOB1`, `TREE10`, and `BLOB2` even though they appear in more than one place in the graph.
 
 How can selectors do this?
+
+Let's start with this:
+```yaml
+# starting from a commit
+Selector:
+  ExploreRecursive:
+    maxDepth: 5 ## this is the shallow clone depth
+    sequence:
+      ExploreFields:
+        fields:
+          "tree":
+            ExploreRecursive:
+              maxDepth: 9999 ## we don't actually allow this field to be absent (reasons similar to graphql's refusal of recursion)
+              sequence:
+                ExploreAll:
+                  next:
+                    ExploreRecursiveEdge
+          "parents":
+              ExploreAll:
+                next:
+                  ExploreRecursiveEdge ## jumps us back up to the top
+```
