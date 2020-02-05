@@ -431,9 +431,14 @@ Now let's shorten the struct and enum names to make the syntax selector specific
 
 ```
 Selector -> (none, it's implied)
-ExploreRecursive -> R
+Matcher -> m
+ExploreAll -> *
 ExploreFields -> f
-ExploreAll -> a
+ExploreIndex -> i
+ExploreRange -> r
+ExploreRecursive -> R
+ExploreUnion -> -
+ExploreConditional -> !
 ExploreRecursiveEdge -> ~
 ```
 
@@ -441,16 +446,16 @@ ExploreRecursiveEdge -> ~
 R(
   5.
   f(
-    tree(
+    'tree'(
       R(
         9999.
-        a(
+        *(
           ~
         )
       )
     )
-    parents(
-      a(
+    'parents'(
+      *(
         ~
       )
     )
@@ -459,5 +464,21 @@ R(
 ```
 
 ```java
-R(5.f(tree(R(9999.a(~)))parents(a(~))))
+R(5.f('tree'(R(9999.a(~)))'parents'(a(~))))
+```
+
+## Example Selectors ported to terse syntax
+
+```java
+f('characters'(
+  f('kathryn-janeway'(
+    f('birthday'(
+      f('year'(.))
+    ))
+  ))
+))
+```
+
+```java
+f('characters'(f('kathryn-janeway'(f('birthday'(f('year'(.))))))))
 ```
