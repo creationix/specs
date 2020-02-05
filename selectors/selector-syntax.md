@@ -482,3 +482,11 @@ f('characters'(
 ```java
 f('characters'(f('kathryn-janeway'(f('birthday'(f('year'(.))))))))
 ```
+
+## Compound paths.
+
+If we allow use of `/` (which is mostly safe in URLs as long it's not used as a path segment) We can optimize for this pattern by creating a new `F` type that accepts compound paths.
+
+```java
+F('characters/kathryn-janeway/birthday/year'(.))
+```
