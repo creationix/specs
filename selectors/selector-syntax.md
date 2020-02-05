@@ -59,21 +59,21 @@ Let's start with some sample IPLD blocks for the last few commits we want to fet
 // CID: COMMIT2
 { commit: {
     message: "Merge Commit",
-    TREE: TREE2,
+    tree: TREE2,
     parents: [COMMIT3, COMMIT4]
 }}
 
 // CID: COMMIT3
 { commit: {
     message: "Feature Branch",
-    TREE: TREE3,
+    tree: TREE3,
     parents: [COMMIT5]
 }}
 
 // CID: COMMIT4
 { commit: {
     message: "Master Branch",
-    TREE: TREE4,
+    tree: TREE4,
     parents: [COMMIT6]
 }}
 ///...
@@ -107,6 +107,81 @@ Now for some trees:
     { name: "libhydrogen", mode: Mode.Commit, link: COMMIT10 },
 ]}
 //...
+```
+
+
+The graph looks something like this when presented with links inline:
+
+```js
+// CID: COMMIT1
+{ commit: { 
+  message: "Test Commit",
+  tree: // CID: TREE1
+    { tree: { 
+      { name: "README.md", mode: Mode.File, link: 
+        // CID: BLOB1_2 ...
+      },
+      { name: "src", mode: Mode.Tree, link:
+        // CID: TREE10
+        { tree: [
+          { name: "main.zig", mode: Mode.File, link: 
+            // CID: BLOB2 ...
+          },
+        ]}
+      },
+      { name: ".gitmodules", mode: Mode.File, link: 
+        // CID: BLOB10 ...
+      },
+      { name: "libhydrogen", mode: Mode.Commit, link: 
+        // CID: COMMIT10 ...
+      },
+    }},
+  parents: [
+    // CID: COMMIT2
+    { commit: {
+      message: "Merge Commit",
+      tree: // CID: TREE2
+        { tree: {
+          { name: "README.md", mode: Mode.File, link: 
+            // CID: BLOB1 ...
+          },
+          { name: "src", mode: Mode.Tree, link:
+            // CID: TREE10
+            { tree: [
+              { name: "main.zig", mode: Mode.File, link: 
+                // CID: BLOB2 ...
+              },
+            ]}
+          },
+        }},
+      parents: [
+        // CID: COMMIT3
+        { commit: {
+          message: "Feature Branch",
+          tree: 
+            // CID: TREE3
+            { tree: [
+                { name: "README.md", mode: Mode.File, link: 
+                  // CID: BLOB1 ...
+                },
+            ]}
+          parents: [
+            // CID: COMMIT5 ...
+          ]
+        }},
+        // CID: COMMIT4
+        { commit: {
+          message: "Master Branch",
+          tree: 
+            // CID: TREE4 ...
+          parents: [
+            // CID: COMMIT6 ...
+          ]
+        }},
+      ]  
+    }}
+  ]
+}}
 ```
 
 ## Selector for Shallow Clone
