@@ -295,3 +295,30 @@ Selector:
                 next:
                   ExploreRecursiveEdge ## jumps us back up to the top
 ```
+
+How does this syntax look:
+```java
+Commit( // COMMIT1
+  message:"Test Commit"
+  tree:Tree( // TREE1
+    Entry(name:"README.md" mode:File link:Blob(...)) // BLOB1_2
+    Entry(name:"src" mode:Tree link:Tree( // TREE10
+      Entry(name:"main.zig" mode:File link:Blob(...)))) // BLOB2
+    Entry(name:".gitmodules" mode:File link:Blob(...)) // BLOB10
+    Entry(name:".libhydrogen" mode:Commit link:Commit(...))) // COMMIT10
+  parents:[
+    Commit( // COMMIT2
+      message:"Merge Commit"
+      tree:Tree( // TREE2
+        Entry(name:"README.md" mode:File link:Blob(...)) // BLOB1
+        Entry(name:"src" mode:Tree link:Tree( // TREE10
+          Entry(name:"main.zig" mode:File link:Blob(...))))) // BLOB2
+      parents:[
+        Commit( // COMMIT 3
+          message:"Feature Branch"
+          tree:Tree( // TREE3
+            Entry(name:"README.md" mode:File link:Blob(...))) // BLOB1
+          parents:[
+            Commit(...)]) // COMMIT5
+        Commit( // COMMIT 4
+```
