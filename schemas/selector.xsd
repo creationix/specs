@@ -1,0 +1,36 @@
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="recurse" type="recurseType"/>
+  <xs:complexType name="allType">
+    <xs:sequence>
+      <xs:element type="xs:string" name="recursive-edge"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="recursiveType">
+    <xs:sequence>
+      <xs:element type="allType" name="all"/>
+    </xs:sequence>
+    <xs:attribute type="xs:string" name="limit"/>
+  </xs:complexType>
+  <xs:complexType name="treeType">
+    <xs:sequence>
+      <xs:element type="recursiveType" name="recursive"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="parentsType">
+    <xs:sequence>
+      <xs:element type="allType" name="all"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="fieldsType">
+    <xs:sequence>
+      <xs:element type="treeType" name="tree"/>
+      <xs:element type="parentsType" name="parents"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="recurseType">
+    <xs:sequence>
+      <xs:element type="fieldsType" name="fields"/>
+    </xs:sequence>
+    <xs:attribute type="xs:byte" name="limit"/>
+  </xs:complexType>
+</xs:schema>

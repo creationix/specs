@@ -1,0 +1,34 @@
+# verbose (parens everywhere, extra whitespace, full-length-keywords, some parameters named)
+recursive(limit=5
+  fields(
+    'tree'(
+      recursive(
+        all(recurse)
+      )
+    )
+    'parents'(
+      all(recurse)
+    )
+  )
+)
+
+# abbreviated (same as verbose, but using abbreviated keywords)
+R(5
+  f(
+    'tree'(R(a(~)))
+    'parents'(a(~))
+  )
+)
+
+# paren-less (same as verbose, but with optional parens removed)
+recursive limit=5
+  fields
+    'tree'
+      recursive all recurse
+    'parents'
+      all recurse
+
+# compact (abbreviated, paren-less, and whitespace stripped)
+R5f'tree'Ra~'parents'a~
+
+

@@ -1,0 +1,18 @@
+<selector>
+    <recurse limit="5">
+        <fields>
+            <tree>
+                <recursive limit="nil">
+                    <all>
+                        <recursive-edge/>
+                    </all>
+                </recursive>
+            </tree>
+            <parents>
+                <all>
+                    <recursive-edge/>
+                </all>
+            </parents>
+        </fields>
+    </recurse>
+</selector>

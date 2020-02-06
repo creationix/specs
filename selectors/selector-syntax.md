@@ -1,492 +1,430 @@
-Let's start with a simplified version of the core git data model implemented as native IPLD.
+Specification: IPLD Selectors Syntax
+=============================
 
-```ipldsch
-type Object union {
-    | Tag "tag"
-    | Commit "commit"
-    | Tree "tree"
-    | Blob "blob"
-} representation keyed
+**Status: Prescriptive - Draft**
 
-type Type enum {
-    | Tree "tree"
-    | Blob "blob"
-    | Commit "commit"
-    | Tag "tag"
-}
+Introduction
+------------
 
-type Tag struct {
-  message String
-  type    Type
-  link    @Object
-}
+### Motivation - What is Selectors Syntax
 
-type Commit struct {
-    message   String
-    tree      &Tree
-    parents   [&Object]
-}
+*Prerequisites: [Selectors](https://github.com/ipld/specs/blob/master/selectors/selectors.md).
 
-type Mode enum {
-  | Tree   ("16384") # 0o040000
-  | Blob   ("33188") # 0o100644
-  | File   ("33188") # 0o100644
-  | Exec   ("33261") # 0o100755
-  | Sym    ("40960") # 0o120000
-  | Commit ("57344") # 0o160000
-} representation int
+IPLD Selectors are represented as IPLD data nodes.  This is great for embedding them in a structured way, but authoring them or viewing them in this format isn't the easiest.  This Syntax provides a textual DSL for reading/writing selectors in a more text friendly format.
 
-type Entry struct {
-    name String
-    mode Mode
-    link @Object
-}
+Tooling can be used to convert between formats and even various styles optimized for the use-case at hand.
 
-type Tree [Entry]
+#### URL Friendly
 
-type Blob Bytes
-```
+Selector syntax should embed easily inside URLs.
 
-Let's start with some sample IPLD blocks for the last few commits we want to fetch:
-```js
-// CID: COMMIT1
-{ commit: {
-    message: "Test Commit",
-    tree: TREE1,
-    parents: [COMMIT2]
-}}
-
-// CID: COMMIT2
-{ commit: {
-    message: "Merge Commit",
-    tree: TREE2,
-    parents: [COMMIT3, COMMIT4]
-}}
-
-// CID: COMMIT3
-{ commit: {
-    message: "Feature Branch",
-    tree: TREE3,
-    parents: [COMMIT5]
-}}
-
-// CID: COMMIT4
-{ commit: {
-    message: "Master Branch",
-    tree: TREE4,
-    parents: [COMMIT6]
-}}
-///...
-```
-
-Now for some trees:
-```js
-// This is like an initial commit for a new project
-// CID: TREE3
-{ tree: [
-    { name: "README.md", mode: Mode.File, link: BLOB1 },
-]}
-
-// These two added a src folder containing a single file
-// CID: TREE2
-{ tree: [
-    { name: "README.md", mode: Mode.File, link: BLOB1 },
-    { name: "src", mode: Mode.Tree, link: TREE10 },
-]}
-// CID: TREE10
-{ tree: [
-    { name: "main.zig", mode: Mode.File, link: BLOB2 },
-]}
-
-// This added a git submodule and modified the README.
-// CID: TREE1
-{ tree: [
-    { name: "README.md", mode: Mode.File, link: BLOB1_2 },
-    { name: "src", mode: Mode.Tree, link: TREE10 },
-    { name: ".gitmodules", mode: Mode.File, link: BLOB10 },
-    { name: "libhydrogen", mode: Mode.Commit, link: COMMIT10 },
-]}
-//...
-```
-
-
-The graph looks something like this when presented with links inline:
-
-## data as raw JSON
-```js
-// CID: COMMIT1
-{ commit: { 
-  message: "Test Commit",
-  tree: // CID: TREE1
-    { tree: { 
-      { name: "README.md", mode: Mode.File, link: 
-        // CID: BLOB1_2 ...
-      },
-      { name: "src", mode: Mode.Tree, link:
-        // CID: TREE10
-        { tree: [
-          { name: "main.zig", mode: Mode.File, link: 
-            // CID: BLOB2 ...
-          },
-        ]}
-      },
-      { name: ".gitmodules", mode: Mode.File, link: 
-        // CID: BLOB10 ...
-      },
-      { name: "libhydrogen", mode: Mode.Commit, link: 
-        // CID: COMMIT10 ...
-      },
-    }},
-  parents: [
-    // CID: COMMIT2
-    { commit: {
-      message: "Merge Commit",
-      tree: // CID: TREE2
-        { tree: {
-          { name: "README.md", mode: Mode.File, link: 
-            // CID: BLOB1 ...
-          },
-          { name: "src", mode: Mode.Tree, link:
-            // CID: TREE10
-            { tree: [
-              { name: "main.zig", mode: Mode.File, link: 
-                // CID: BLOB2 ...
-              },
-            ]}
-          },
-        }},
-      parents: [
-        // CID: COMMIT3
-        { commit: {
-          message: "Feature Branch",
-          tree: 
-            // CID: TREE3
-            { tree: [
-                { name: "README.md", mode: Mode.File, link: 
-                  // CID: BLOB1 ...
-                },
-            ]}
-          parents: [
-            // CID: COMMIT5 ...
-          ]
-        }},
-        // CID: COMMIT4
-        { commit: {
-          message: "Master Branch",
-          tree: 
-            // CID: TREE4 ...
-          parents: [
-            // CID: COMMIT6 ...
-          ]
-        }},
-      ]  
-    }}
-  ]
-}}
-```
-
-## data as schema typed yaml
-```yaml
-Object: # COMMIT1
-  Commit:
-    message: Test Commit
-    tree: 
-      Object: # TREE1
-        Tree:
-          - Entry:
-            name: README.md
-            mode: Mode.File
-            link: 
-              Object: # BLOB1_2 ...
-          - Entry:
-            name: src
-            mode: Mode.Tree
-            link:
-              Object: # TREE10
-                Tree:
-                  - Entry:
-                    name: main.zig
-                    mode: Mode.File
-                    link: 
-                      Object: # BLOB2 ...
-          - Entry:
-            name: .gitmodules
-            mode: Mode.File
-            link: 
-              Object: # BLOB10 ...
-          - Entry:
-            name: libhydrogen
-            mode: Mode.Commit
-            link: 
-              Object: # COMMIT10 ...
-    parents:
-      - Object: # COMMIT2
-        Commit:
-          message: Merge Commit
-          tree: 
-            Object: # TREE2
-              Tree:
-                - Entry:
-                  name: README.md
-                  mode: Mode.File
-                  link:
-                    Object: # BLOB1 ...
-                - Entry:
-                  name: src
-                  mode: Mode.Tree
-                  link:
-                    Object: # TREE10
-                      Tree:
-                        - Entry:
-                          name: main.zig
-                          mode: Mode.File
-                          link:
-                            Object: # BLOB2
-      parents:
-        - Object: # COMMIT3
-          Commit:
-            message: Feature Branch
-            tree: 
-              - Object: # TREE3
-                Tree:
-                  name: README.md
-                  mode: Mode.File
-                  link: 
-                    Object: # BLOB1 ...
-            parents:
-              - Object: # COMMIT5 ...
-        - Object: # COMMIT4
-          Commit:
-            message: Master Branch
-            tree: 
-              Object: # TREE4 ...
-            parents:
-              Object: # COMMIT6
-```
-
-## Selector for Shallow Clone
-
-So now for the tricky part.  I want a selector that simulates a shallow git clone.  This means:
-- Recursively follow the `parents` list in each commit up to a given depth.
-- Recursively follow tree links witout depth limit.
-- Don't follow submodules, these appear as tree entries where `type: Mode.commit`
-- I don't want multiple copies of `BLOB1`, `TREE10`, and `BLOB2` even though they appear in more than one place in the graph.
-
-How can selectors do this?
-
-Let's start with this:
-```yaml
-# starting from a commit
-Selector:
-  ExploreRecursive:
-    maxDepth: 5 ## this is the shallow clone depth
-    sequence:
-      ExploreFields:
-        fields:
-          "tree":
-            ExploreRecursive:
-              maxDepth: 9999 ## we don't actually allow this field to be absent (reasons similar to graphql's refusal of recursion)
-              sequence:
-                ExploreAll:
-                  next:
-                    ExploreRecursiveEdge
-          "parents":
-              ExploreAll:
-                next:
-                  ExploreRecursiveEdge ## jumps us back up to the top
-```
-
-How does this syntax look:
-```closurescript
-(Commit
-  message="Test Commit"
-  tree=<Tree: # TREE1
-    Entry: name="README.md" mode=File link=Blob:
-      ... # BLOB1_2
-    Entry: name="src" mode=Tree link=Tree( # TREE10
-      Entry(name="main.zig" mode=File link=Blob(...)))) # BLOB2
-    Entry(name=".gitmodules" mode=File link=Blob(...)) # BLOB10
-    Entry(name=".libhydrogen" mode=Commit link=Commit(...))) # COMMIT10
-  parents:[
-    Commit( # COMMIT2
-      message:"Merge Commit"
-      tree:Tree( # TREE2
-        Entry(name="README.md" mode=File link=Blob(...)) # BLOB1
-        Entry(name="src" mode=Tree link=Tree( # TREE10
-          Entry(name="main.zig" mode=File link=Blob(...))))) # BLOB2
-      parents:[
-        Commit( # COMMIT 3
-          message:"Feature Branch"
-          tree:Tree( # TREE3
-            Entry(name="README.md" mode=File link=Blob(...))) # BLOB1
-          parents:[
-            Commit(...)]) # COMMIT5
-        Commit( # COMMIT 4
-```
-
-## Url Friendly Generalized Syntax
+This means where possible, this syntax restricts itself to the characters that can be embedded in URLs without needing to escape them. This means this subset of ASCII:
 
 ```js
-// Finding out what characters are URL friendly so we know what to work with.
-> new Array(256).join('.').split('.').map((_,i)=>String.fromCharCode(i)).filter(i=>encodeURIComponent(i)===i&&encodeURI(i)===i)
-[
-  '!', "'", '(', ')', '*', '-', '.', '0', '1',
+[ '!', "'", '(', ')', '*', '-', '.', '0', '1',
   '2', '3', '4', '5', '6', '7', '8', '9', 'A',
   'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
   'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
   'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a',
   'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
   'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-  't', 'u', 'v', 'w', 'x', 'y', 'z', '~'
-]
+  't', 'u', 'v', 'w', 'x', 'y', 'z', '~']
 ```
 
-This is a sample selector as it would appear embedded in a URL as a long line:
+This also also means it needs to be as terse as possible and not contain whitespace of any kind.
 
-```java
-Selector(ExploreRecursive(maxDepth(5)sequence(ExploreFields(fields(tree(ExploreRecursive(maxDepth(9999)sequence(ExploreAll(next(ExploreRecursiveEdge())))))parents(ExploreAll(next(ExploreRecursiveEdge()))))))))
+For example, this selector simulates a git shallow clone by recursively walking commit parents up to depth 5 and walking all of the tree graphs for each.
+
+```ipldsel
+# Starting at the commit block.
+R5f'tree'R*~'parents'*~
 ```
 
-Here, it's shown with whitespace added.  Notice that every line ends in punctuation so whitespace is never needed.
+#### Human Friendly
 
-```java
-// starting from a commit
-Selector(
-  ExploreRecursive(
-    maxDepth(5) // this is the shallow clone depth
-    sequence(
-      ExploreFields(
-        fields(
-          tree(
-            ExploreRecursive(
-              maxDepth(9999) // we don't actually allow this field to be absent (reasons similar to graphql's refusal of recursion)
-              sequence(
-                ExploreAll(
-                  next(
-                    ExploreRecursiveEdge())))))
-          parents(
-            ExploreAll(
-              next(
-                ExploreRecursiveEdge()))))))))
-```
+Selector syntax should be easy to read/author by humans.
 
-For comparison, here is the YAML version.
+This means it should be terser than the JSON or YAML representations of the IPLD data, but still verbose enough to have meaningful structure and keywords/symbols.
 
-```yaml
-# starting from a commit
-Selector:
-  ExploreRecursive:
-    maxDepth: 5 ## this is the shallow clone depth
-    sequence:
-      ExploreFields:
-        fields:
-          "tree":
-            ExploreRecursive:
-              maxDepth: 9999 ## we don't actually allow this field to be absent (reasons similar to graphql's refusal of recursion)
-              sequence:
-                ExploreAll:
-                  next:
-                    ExploreRecursiveEdge
-          "parents":
-              ExploreAll:
-                next:
-                  ExploreRecursiveEdge ## jumps us back up to the top
-```
+This means it should allow flexibility with whitespace as well as allowing optional symbols and annotations to make structure easier to see visually.
 
-Let's try to make it more terse and readable.  All schema types have fixed arity in selectors, so we can omit property names.
-This also reduces the amount of parentheses considerably.  We add `.` as a separater between arguments that don't end in symbols already.
-Also don't require symbols for leaves like `ExploreRecursiveEdge`.
+The exact same selector for gt shallow clone from above can also we written in the following form using this exact same syntax: (This is not another mode, it's the same syntax):
 
-One liner in more terse version.
-```java
-Selector(ExploreRecursive(5.ExploreFields(tree(ExploreRecursive(9999.ExploreAll(ExploreRecursiveEdge)))parents(ExploreAll(ExploreRecursiveEdge)))))
-```
-
-
-Same thing pretty-printed.
-```
-Selector(
-  ExploreRecursive(
-    5.
-    ExploreFields(
-      tree(
-        ExploreRecursive(
-          9999.
-          ExploreAll(
-            ExploreRecursiveEdge
-          )
-        )
-      )
-      parents(
-        ExploreAll(
-          ExploreRecursiveEdge
-        )
-      )
-    )
-  )
-)
-```
-
-Now let's shorten the struct and enum names to make the syntax selector specific.
-
-```
-Selector -> (none, it's implied)
-Matcher -> m
-ExploreAll -> *
-ExploreFields -> f
-ExploreIndex -> i
-ExploreRange -> r
-ExploreRecursive -> R
-ExploreUnion -> -
-ExploreConditional -> !
-ExploreRecursiveEdge -> ~
-```
-
-```java
-R(
-  5.
-  f(
+```ipldsel
+recursive(limit=5
+  fields(
     'tree'(
-      R(
-        9999.
-        *(
-          ~
-        )
+      recursive(
+        all(recurse)
       )
     )
     'parents'(
-      *(
-        ~
-      )
+      all(recurse)
     )
   )
 )
 ```
 
-```java
-R(5.f('tree'(R(9999.a(~)))'parents'(a(~))))
-```
+Examples
+--------
 
-## Example Selectors ported to terse syntax
+### Deeply Nested Path
 
-```java
-f('characters'(
-  f('kathryn-janeway'(
-    f('birthday'(
-      f('year'(.))
+Based on [this example](https://github.com/creationix/specs/blob/selector_text_syntax/selectors/example-selectors.md#deeply-nested-path).
+
+A selector to extract the year:
+
+#### Human Readable Style
+
+This is the default style for human interfacing.  It has clear structure and descriptive keywords.
+
+```ipldsel
+fields('characters'(
+  fields('kathryn-janeway'(
+    fields('birthday'(
+      fields('year'(match))
     ))
   ))
 ))
 ```
 
-```java
-f('characters'(f('kathryn-janeway'(f('birthday'(f('year'(.))))))))
+#### URL Embeddable Style
+
+This is the default style for maximum terseness.  It minifies everything possible.
+
+```ipldsel
+f'characters'f'kathryn-janeway'f'birthday'f'year'.
 ```
 
-## Compound paths.
+#### Using multi-segment-path extension.
 
-If we allow use of `/` (which is mostly safe in URLs as long it's not used as a path segment) We can optimize for this pattern by creating a new `F` type that accepts compound paths.
+We can add some syntax sugar extensions as macros for common use cases as they come up.
 
-```java
-F('characters/kathryn-janeway/birthday/year'(.))
+```ipldsel
+p'characters/kathryn-janeway/birthday/year'.
 ```
+
+This example is sugar for a deeply nested path using a new `"paths"`/`"p"` keyword.  It's a version of `"f"` that splits its input on `/` and creates nested selectors.
+
+This can be done as a macro-like sugar at this level.  Another option is for the selector spec to add `ExplorePaths` as a new selector with optimized representation and execution.
+
+### Getting a certain number of parent blocks in a blockchain
+
+This is based on [this sample](https://github.com/creationix/specs/blob/selector_text_syntax/selectors/example-selectors.md#getting-a-certain-number-of-parent-blocks-in-a-blockchain).
+
+#### Parents Without Recursion
+
+Direct and simple path traversal:
+
+```ipldsel
+# Long Form
+fields('parent'(
+  fields('parent'(
+    fields('parent'(
+      fields('parent'(
+        fields('parent'(
+          match
+        ))
+      ))
+    ))
+  ))
+))
+
+# Short Form
+f'parent'f'parent'f'parent'f'parent'f'parent'.
+```
+
+Shorter using paths extension:
+
+```ipldsel
+# Long Form
+paths('parent/parent/parent/parent/parent'(
+  match
+))
+
+# Short Form
+p'parent/parent/parent/parent/parent'.
+```
+
+#### Parents Using Recursion
+
+```ipldsel
+# Long Form
+recursive(limit=5
+  fields('parent'(
+    recurse
+  ))
+)
+
+# Short Form
+R5f'parent'~
+```
+
+### Getting changes up to a certain one
+
+Based on [this example](https://github.com/creationix/specs/blob/selector_text_syntax/selectors/example-selectors.md#getting-changes-up-to-a-certain-one).
+
+```ipldsel
+# Long Form
+recursive(
+  limit=100
+  fields(
+    'prev'(recurse)
+  )
+  stopAt=... # Conditions are not specified yet
+)
+
+# Short Form
+R100f'prev'~... # Conditions are not specified yet
+```
+
+### Retrieving data recursively
+
+Based on [this example](https://github.com/creationix/specs/blob/selector_text_syntax/selectors/example-selectors.md#retrieving-data-recursively).
+
+The following selector visits all `links` and matches all `data` fields:
+
+```ipldsel
+# Long Form
+recursive(limit=1000
+  fields(
+    'data'(match)
+    'links'(
+      all(
+        fields('cid'(
+          recurse
+        ))
+      )
+    )
+  )
+)
+
+# Short Form
+R1000f'data'.'links'*f'cid'~
+```
+
+Syntax Specification
+--------------------
+
+Selectors Syntax is defined as a textual projection of the Selector AST and thus does not contain any of its own runtime semantics.
+
+### Long and Short Keywords
+
+Each selector type has both long and short names that can be used interchangeably as follows:
+
+- Matcher can be `match` or `.`
+- ExploreAll can be `all` or `*`
+- ExploreFields can be `fields` or `f`
+- ExploreIndex can be `index` or `i`
+- ExploreRange can be `range` or `r`
+- ExploreRecursive can be `recursive` or `R`
+- ExploreUnion can be `union` or `u`
+- ExploreConditional can be `condition` or `c`
+- ExploreRecursiveEdge can be `recurse` or `~`
+
+This mode-less flexibility, combined with tools to automatically translate in bulk between styles, makes it possible for a single syntax to work well for both human and url embedding use cases.
+
+### Whitespace is Ignored
+
+Whitespace is completely ignored by the parser except for inside quoted strings.
+
+When extending this in the future, be aware that whitespace cannot be used as keyword boundaries (`"ab cd"` is identical to `"a bc d"`).
+We should have enough space for dozens of long and short names, but will want to write a tool to automatically look for ambiguities as well as improve developer experience with auto formatters and smart highlighters.
+
+### Parentheses are Usually Optional
+
+Parentheses annotate structure and are sometimes required for ambigious cases such as unions which contain an arbitrary number of selectors or selectors with optional parameters of conflicting types.
+
+However the parser can usually infer the structure without them because most selectors have a fixed or semi-fixed arity and certain types are only allowed at certain places.
+
+The best practice (and what the default formatting styles will enforce) is for human readable selectors to use parentheses liberally while URL embedding style will only contain the required ones.
+
+### Parameters can be Named
+
+Parameters can usually be inferred by their contextual position, but there are some cases where it's ambigious and needs to be specified.  There are more cases where it's good to annotate them for human clarity.
+
+For example, `recursive` has two required parameters and a 3rd optional one.
+
+```ts
+recursive(sequence: Selector, limit: int, stopAt?: Condition)
+```
+
+Written verbosely with parentheses, named parameters, and whitespace, it looks like this:
+
+```ipldsel
+recursive(
+    limit=5
+    sequence=...
+)
+```
+
+Depending on the context, we could omit the parentheses because the optional `stopAt` parameter is of type `Condition` and the parser likely expects something else after this node.
+
+Also we don't need to annotate `limit=` or `sequence=` since both are non-optional, and unique types.  Notice that the order doesn't matter and we can put `limit` before `sequence` because of unambigious types.
+
+Best practice is to annotate `limit`, but not `sequence` for human readable, and omit both for URL form.
+
+```ipldsel
+# Human Readable
+recursive(limit=5 ...)
+# URL Embeddable
+R(5...)
+```
+
+### Literal Values
+
+Some of the selectors accept literal values as parameters.  These are currently `String`, `{String:Selector}`, and `int`.
+
+#### Integers
+
+Integers can be encoded using common integer literals found in programming languages:
+
+```
+123 # Decimal
+0xfeed # Hex
+0o644 # Octal
+0b1001010 # Binary
+```
+
+Note these are case insensitive for both the hex digits as well as the base prefixes.
+
+#### Strings
+
+Strings are quoted using single quote, they can be escaped using double single quote.  You can include non url-safe characters between the quotes, but will need to escape the entire selector properly when embedding in a URL.
+
+```
+'Hello World'
+'It''s a lovely day'
+'Multiline
+strings'
+'two'_'strings'
+```
+
+Technically, any character possible in the selector itself (likely unicode) is allowed in here.  Also this means we cannot have two strings appearing next to eachother without a `_` separator between them.  Currently this never happens since no selector accepts two strings in a row.
+
+#### Maps
+
+We need to be able to encode the keys for the `fields` selector.  This is done using multiple string literals followed by nested contents.
+
+```ipldsel
+fields(
+  'foo'(...)
+  'bar'(...)
+)
+```
+
+#### Bytes
+
+Selectors don't yet use bytes, but should ExploreFields be modified to allow binary keys, we are specifying a way to encode bytes.
+
+This is done using hex pairs surrounded by `!` characters.
+
+```
+!48 65 6c 6c 6f!
+!48656c6c6f!
+!48656
+ c6c6f!
+```
+
+Notice that whitespace is ignored.
+
+### Whitespace and Comments
+
+Comments are allowed in this syntax and will be preserved by auto-formatters wen possible, but will be stripped when converting to URL style and are not included in the IPLD representation of the selector.
+
+A comment starts at `#` and ends at end of line.
+
+Parser Specification
+--------------------
+
+### String and Comment Modes
+
+The selector text is normally treated initially as a stream of characters.  For purposes of parsing, strings and comments create modal changes to the rules.
+
+- When in normal mode:
+  - Finding `"'"` changes to string mode.
+  - Finding `"#"` changes to comment mode. (Also discard it).
+  - Discard whitespace, defined as `"\r"`, `"\n"`, `"\t"`, and `" "`.
+- When in string mode:
+  - Finding `"'"` changes back to normal mode.
+  - Preserve all characters.
+- When in comment mode:
+  - Finding newline changes back to normal mode.
+  - Discard all characters.
+
+If comments and strings overlap, whichever comes first is the correct mode:
+
+```ipldsch
+# This is a comment 'this is not a string'
+'This # is # a string' this is normal
+this is also normal
+```
+
+### Identifier Tokenization
+
+The parser knows a fixed set of built-ins to look for.  This is the long and short forms of the selectors and other built-ins.  To keep the specification simple, text is semantically tokenized by sorting all the identifiers longest first and trying each one in that order till one matches.
+
+```ipldsel
+# This will match `fields` first and not even try `f`.
+fields...
+```
+
+### Number Tokenization
+
+Numbers are tokenized similar to the identifier method. If a single zero is followed by `x`, `o`, or `b` and then one or more digits belonging to that base, it will be tokenized as that base.  Otherwise it will be a zero.  Normal decimal numbers are also parsed greedily.
+
+For example:
+
+```ipldsel
+123   # this is 123
+0xdeg # this is 0xde or 222 with `g` leftover to tokenize.
+0123  # this is 123
+```
+
+### String Tokenization
+
+Strings are tokenized simply by switching modes based on the presense of `"'"` characters.  We enable quote escaping with a rule that whenever two string literals are next to eachother, they are combined into a single string.
+
+```ipldsel
+'I am a string'      # "I am a string"
+'I''m a string too'  # "I'm a string too"
+```
+
+### Parentheses and Parse Order
+
+Arguments/parameters are consumed greedily by the innermost consumer.  If the type doesn't match what it is looking for, then it is closed and the next in the stack gets a shot.  If we run out of consumers and the value is unmatched, it's a syntax error.  For example:
+
+```ipldsel
+fields 'fieldName' match
+```
+
+First we parse `fields`. This expects `{String:Selector}`, which to the parser, is a stream of alternating `String` and `Selector` tokens.  We put this on the stack and look at the next value.  It's a `String` which has no children.  The consumer on the top of the stack is looking for a string, so we give it to it.  Then we read the next.  It's a `match` which also has no children.  The `fields` on the stack is now looking for a `Selector` which this qualifies as, so it gets consumed next.
+
+After that we reach the end of the stream and pop everything off the stack.  Any consumer that still lacks a required parameter is now a syntax error.
+
+We could have added parentheses to this, but they were not needed since the default parsing interpretation is what we wanted.
+
+```ipldsel
+# This is the same as above when parsed.
+fields('fieldname'(match))
+```
+
+When parentheses are added, it sets constraints on what level tokens live on.  It goes up with every `"("` and down with every `")"`.  All parameters to a single consumer must have the same nesting level or they don't match.
+
+Known issues
+------------
+
+- Note that the status of this document is "Draft"!
+- The "Condition" system is not fully specified -- it is a placeholder awaiting further design.
+- The description of the lexing and parsing algorithm should be sufficient for unambiguous parsing, but more formal consideration is strongly recommended including tools to test for regressions as we add to this language.
+
+Other related work
+------------------
+
+### Implementations
+
+None yet.
+
+### Design History
+
+None yet.
